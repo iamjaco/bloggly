@@ -1,0 +1,224 @@
+body {
+	font-family: 'Menlo', monospace;
+	padding: 30px 20px;
+        font-size: 16px;
+	background-color: #fdfdfe;
+	max-width: 650px;
+	margin: 0 auto;
+}
+
+a {
+	text-decoration: none;
+	color: #373937;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+h1, h2, h3 {
+	line-height: 1.0;
+font-family: 'Arial', sans-serif;
+}
+
+h1 {
+	text-align: center;
+}
+
+h1 { text-decoration: none;
+color: #373937;
+}
+
+
+.thought h2 {
+    font-family: 'Arial', sans-serif;
+    font-size: 1.2em; /* Adjust the size as needed */
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #373937; /* Adjust the color as needed */
+}
+
+.thought {
+    padding: 10px;
+    border-bottom: 1px solid #eaeaea; /* Faint line */
+    margin-bottom: 20px; /* Space after each post */
+    /* ... other styles ... */
+}
+
+.thought.last-thought {
+    border-bottom: none;
+}
+
+
+
+
+
+
+.post-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.post-date {
+    font-size: 0.8em; /* Smaller font size */
+    color: #666; /* Lighter color */
+    margin-right: auto; /* Pushes the date to the left and icons to the right */
+}
+
+.icon {
+    margin: 0 5px;
+    cursor: pointer;
+    font-size: 1em; /* Adjust if needed */
+}
+
+
+
+/* You can customize the color and hover effects of the icons */
+.icon i {
+    color: #888; /* Default color */
+}
+
+.icon:hover i {
+    color: #333; /* Color on hover */
+}
+
+
+.post-image {
+    max-width: 100%; /* Ensures image does not exceed the width of the post */
+    height: auto; /* Maintains the aspect ratio of the image */
+    margin-bottom: 10px; /* Adds space between the image and text */
+}
+
+.navbar {
+    text-align: center;
+    padding: 10px 0;
+    background-color: #ffffff; /* Adjust color as needed */
+    max-width: 650px; /* Same as the width of the posts */
+    margin: 0 auto; /* Centers the navbar */
+}
+
+.navbar a {
+    margin: 0 10px;
+    color: #373937;
+    text-decoration: none;
+}
+
+.navbar a:hover {
+    text-decoration: underline;
+}
+
+.codeblock {
+    display: block;
+    padding: 10px;
+    margin: 10px 0;
+    overflow-x: auto; /* Allows scrolling for long lines of code */
+    background-color: #f7f7f7; /* Light grey background */
+    border: 1px solid #ddd; /* Subtle border */
+    border-radius: 5px; /* Rounded corners */
+    font-family: 'Menlo', monospace; /* Monospaced font for code */
+    font-size: 0.9em;
+    color: #333; /* Darker text color for contrast */
+    white-space: pre-wrap; /* Maintains formatting of whitespace */
+}
+
+/* ... Existing styles ... */
+
+.image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.image-gallery img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px; /* Optional: for rounded corners */
+}
+
+.quote-post blockquote {
+    font-style: italic;
+    border-left: 4px solid #eaeaea; /* Faint line to the left of the quote */
+    padding-left: 20px; /* Space before the quote text */
+    margin: 10px 0; /* Margin around the quote */
+    color: #666; /* Optional: different text color for the quote */
+}
+
+
+.post-link {
+    color: #1a0dab; /* Typical hyperlink color */
+    text-decoration: underline; /* Underline for clarity */
+    word-break: break-all; /* Breaks the URL to prevent overflow */
+}
+
+.post-link:hover {
+    color: #dd4b39; /* Color change on hover for interactivity */
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Menlo', monospace;
+    font-size: 16px;
+}
+
+.form-control:focus {
+    border-color: #1a0dab;
+    outline: none;
+}
+
+/* Button Styles */
+.btn {
+    display: inline-block;
+    background-color: #1a0dab;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Arial', sans-serif;
+}
+
+.btn:hover {
+    background-color: #1658a2;
+}
+
+/* Additional styling for error messages or form alerts */
+.form-alert {
+    color: #dd4b39;
+    margin-top: 10px;
+}
+
+/* Alignment and spacing for the form */
+.auth-form {
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 5px;
+}
+
+/* Links within the form area */
+.auth-form a {
+    color: #1a0dab;
+}
+
+.auth-form a:hover {
+    text-decoration: underline;
+}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+    <!-- Basic Navbar -->
+    <nav class="navbar">
+        <a href="#">Home</a>
+        <a href="#">New</a>
+        <a href="#">Sign Out</a>
+    </nav>
+    <h1> iamjaco</h1>
+
+    {% for post in posts %}
+        <div class='thought {% if loop.last %}last-thought{% endif %}'>
+            <!-- Display title if available -->
+            {% if post.title %}
+                <h2>{{ post.title }}</h2>
+            {% endif %}
+
+            <!-- Display content for all posts -->
+            {% if post.content %}
+                <p>{{ post.content }}</p>
+            {% endif %}
+            
+            <!-- Additional content based on post type -->
+            {% if post.post_type == 'image' %}
+                <div class="image-gallery">
+                    {% for image in post.images %}
+                        <img src="{{ image.url }}" alt="Post Image">
+                    {% endfor %}
+                </div>
+            {% elif post.post_type == 'codeblock' %}
+                <pre><code class="codeblock">{{ post.codeblock }}</code></pre>
+            {% elif post.post_type == 'quote' %}
+                <blockquote>{{ post.quote }}</blockquote>
+            {% elif post.post_type == 'link' %}
+                <p>Check out this link: <a href="{{ post.link }}" target="_blank" class="post-link">{{ post.link }}</a></p>
+            {% endif %}
+
+            <footer class="post-footer">
+                <span class="post-date">{{ post.date_posted.strftime('%b %d, %Y - %I:%M%p') }}</span>
+                <span class="icon"><i class="fa-solid fa-thumbtack"></i></span>
+                <span class="icon"><i class="fa-solid fa-heart"></i></span>
+                <span class="icon"><i class="fa-solid fa-share-nodes"></i></span>
+                <span class="icon"><i class="fa-solid fa-face-smile"></i></span>
+            </footer>
+        </div>
+    {% endfor %}
+
+    <hr>
+    <p style="text-align:center">
+        Made with ♥ by a human.
+    </p>
+{% endblock %}
