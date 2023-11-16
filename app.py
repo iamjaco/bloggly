@@ -1,20 +1,27 @@
+import os
 from flask import Flask, render_template, url_for, redirect, flash, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
+from wtforms import StringField, TextAreaField, SubmitField, PasswordField, SelectField, BooleanField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError
+from flask_wtf.file import FileField, FileAllowed
 from datetime import datetime
-from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SubmitField, BooleanField, SelectField
-from wtforms.validators import DataRequired
+import os
+import secrets
+from datetime import datetime
+from werkzeug.utils import secure_filename
+from flask_login import logout_user
 
 
 # Flask app and database initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+app.config['UPLOAD_FOLDER'] = 'static/images'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max-limit
 db = SQLAlchemy(app)
 
 # Flask-Login initialization
@@ -32,7 +39,7 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
-    posts = db.relationship('Post', backref='author', lazy=True)
+    posts = db.relationship('Post', backref='author', lazy='dynamic')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -54,10 +61,34 @@ class Post(db.Model):
     is_pinned = db.Column(db.Boolean, default=False)
     is_private = db.Column(db.Boolean, default=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    images = db.relationship('Image', backref='post', lazy='dynamic')
+    tags = db.relationship('Tag', secondary='post_tags', backref=db.backref('posts', lazy='dynamic'))
 
     def __repr__(self):
         return f"Post('{self.title}', '{self.date_posted}', '{self.post_type}')"
 
+# Image model
+class Image(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(300), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+
+    def __repr__(self):
+        return f"Image('{self.url}', Post ID: '{self.post_id}')"
+
+# Tag model
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+    def __repr__(self):
+        return f"Tag('{self.name}')"
+
+# Association table for posts and tags
+post_tags = db.Table('post_tags',
+    db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+)
 
 # Registration form
 class RegistrationForm(FlaskForm):
@@ -88,6 +119,12 @@ class PostForm(FlaskForm):
     title = StringField('Title')
     content = TextAreaField('Content', validators=[DataRequired()])
     post_type = SelectField('Type', choices=[('standard', 'Standard'), ('image', 'Image'), ('quote', 'Quote'), ('link', 'Link'), ('codeblock', 'Code Block')])
+    codeblock = TextAreaField('Codeblock')
+    quote = TextAreaField('Quote')
+    link = StringField('Link')
+    image_files = FileField('Upload Images', validators=[FileAllowed(['jpg', 'png', 'gif', 'jpeg'])], render_kw={"multiple": True})
+    tags = StringField('Tags', description="Separate tags with commas")
+    is_private = BooleanField('Private Post')
     submit = SubmitField('Post')
 
 
@@ -123,97 +160,82 @@ def login():
     return render_template('login.html', title='Login', form=form)
 
 
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.')
+    return redirect(url_for('login'))
+
+
 @app.route("/post/new", methods=['GET', 'POST'])
 @login_required
 def new_post():
     form = PostForm()
     if form.validate_on_submit():
-        post = Post(title=form.title.data, content=form.content.data, post_type=form.post_type.data, author=current_user)
+        post = Post(title=form.title.data, content=form.content.data,
+                    post_type=form.post_type.data, is_private=form.is_private.data,
+                    codeblock=form.codeblock.data, quote=form.quote.data, link=form.link.data,
+                    author=current_user)
         db.session.add(post)
         db.session.commit()
+
+        # Image handling
+        if form.image_files.data:
+            for image_file in request.files.getlist('image_files'):
+                random_hex = secrets.token_hex(8)
+                _, f_ext = os.path.splitext(secure_filename(image_file.filename))
+                unique_filename = random_hex + '_' + datetime.now().strftime("%Y%m%d%H%M%S") + f_ext
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                image_file.save(image_path)
+                image_url = os.path.join('images', unique_filename).replace('\\', '/')
+                image = Image(url=image_url, post_id=post.id)
+                db.session.add(image)
+            db.session.commit()
+
+        # Tag handling
+        if form.tags.data:
+            tag_names = [t.strip() for t in form.tags.data.split(',')]
+            for tag_name in tag_names:
+                tag = Tag.query.filter_by(name=tag_name).first()
+                if not tag:
+                    tag = Tag(name=tag_name)
+                    db.session.add(tag)
+                post.tags.append(tag)
+            db.session.commit()
+
         flash('Your post has been created!', 'success')
         return redirect(url_for('home'))
     return render_template('create_post.html', title='New Post', form=form)
 
-
 @app.route("/post/<int:post_id>")
 def post(post_id):
     post = Post.query.get_or_404(post_id)
-    return render_template('post.html', title=post.title, post=post)
+    images = Image.query.filter_by(post_id=post.id).all()
+    tags = post.tags
+    return render_template('post.html', title=post.title, post=post, images=images, tags=tags)
 
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
-# Home route
 @app.route('/')
-@login_required
 def home():
-    # Dummy posts data
-    posts = [
-        {
-            'title': '',
-            'content': 'This is the content of the first post.',
-            'date_posted': datetime(2023, 3, 15, 10, 30),
-            'post_type': 'standard',
-            'codeblock': None,
-            'quote': None,
-            'link': None,
-            'images': []
-        },
-        {
-            'title': 'pretty pics',
-            'content': '',
-            'date_posted': datetime(2023, 3, 16, 11, 45),
-            'post_type': 'image',
-            'codeblock': None,
-            'quote': None,
-            'link': None,
-            'images': [{'url': 'https://via.placeholder.com/600x400'}, {'url': 'https://via.placeholder.com/600x400'}]
-        },
-        {
-            'title': '',
-            'content': '',
-            'date_posted': datetime(2023, 3, 17, 12, 0),
-            'post_type': 'quote',
-            'codeblock': None,
-            'quote': '“The only impossible journey is the one you never begin.” – Tony Robbins',
-            'link': None,
-            'images': []
-        },
-        {
-            'title': '',
-            'content': '',
-            'date_posted': datetime(2023, 3, 18, 8, 20),
-            'post_type': 'link',
-            'codeblock': None,
-            'quote': None,
-            'link': 'https://example.com',
-            'images': []
-        },
-        {
-            'title': '',
-            'content': '',
-            'date_posted': datetime(2023, 3, 19, 9, 15),
-            'post_type': 'codeblock',
-            'codeblock': 'print("Hello, World!")',
-            'quote': None,
-            'link': None,
-            'images': []
-        },
-        {
-            'title': '',
-            'content': '',
-            'date_posted': datetime(2023, 3, 20, 14, 30),
-            'post_type': 'image',
-            'codeblock': None,
-            'quote': None,
-            'link': None,
-            'images': [{'url': 'https://via.placeholder.com/600x400'}]  # Single image
-        }
-    ]
+    if current_user.is_authenticated:
+        # Show all public posts and private posts by the logged-in user
+        posts = Post.query.filter(
+            (Post.is_private == False) | 
+            ((Post.is_private == True) & (Post.user_id == current_user.id))
+        ).order_by(Post.date_posted.desc()).all()
+    else:
+        # If not authenticated, show only public posts
+        posts = Post.query.filter_by(is_private=False).order_by(Post.date_posted.desc()).all()
 
     return render_template('home.html', title='Home', posts=posts)
 
-# Run the application
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
+
