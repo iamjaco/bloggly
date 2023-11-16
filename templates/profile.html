@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="navbar">
+    <a href="{{ url_for('home') }}">Home</a>
+</nav>
+<div class="profile-container">
+    <h3>Profile</h3>
+    <div class="profile-info">
+        <p><strong>Username:</strong> {{ current_user.username }}</p>
+        <p><strong>Email:</strong> {{ current_user.email }}</p>
+        <p><strong>API Key:</strong> {{ current_user.api_key }}</p>
+    </div>
+
+    <!-- API Key Generation -->
+    <div class="api-key-generation">
+        <form action="{{ url_for('generate_api_key') }}" method="post">
+            <button type="submit" class="btn-generate-api">
+                {% if current_user.api_key %}
+                    Reset API Key
+                {% else %}
+                    Generate API Key
+                {% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -14,6 +14,13 @@ import secrets
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask_login import logout_user
+import pytz
+from functools import wraps
+from flask import jsonify
+
+import markdown
+from flask import Markup
+
 
 
 # Flask app and database initialization
@@ -33,12 +40,24 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-KEY')
+        user = User.query.filter_by(api_key=api_key).first()
+        if user is None:
+            return jsonify({"error": "Invalid or missing API Key"}), 403
+        return f(*args, **kwargs, user=user)
+    return decorated_function
+
 # User model
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
+    api_key = db.Column(db.String(128), unique=True, nullable=True)
     posts = db.relationship('Post', backref='author', lazy='dynamic')
 
     def set_password(self, password):
@@ -117,7 +136,7 @@ class LoginForm(FlaskForm):
 
 class PostForm(FlaskForm):
     title = StringField('Title')
-    content = TextAreaField('Content', validators=[DataRequired()])
+    content = TextAreaField('Content')
     post_type = SelectField('Type', choices=[('standard', 'Standard'), ('image', 'Image'), ('quote', 'Quote'), ('link', 'Link'), ('codeblock', 'Code Block')])
     codeblock = TextAreaField('Codeblock')
     quote = TextAreaField('Quote')
@@ -126,6 +145,25 @@ class PostForm(FlaskForm):
     tags = StringField('Tags', description="Separate tags with commas")
     is_private = BooleanField('Private Post')
     submit = SubmitField('Post')
+
+    def validate(self, **kwargs):
+        # Custom validation logic
+        if not super(PostForm, self).validate(**kwargs):
+            return False
+
+        if self.post_type.data in ['standard', 'link'] and not self.content.data:
+            self.content.errors.append('Content is required for this post type.')
+            return False
+
+        if self.post_type.data == 'quote' and not self.quote.data:
+            self.quote.errors.append('Quote is required for this post type.')
+            return False
+
+        if self.post_type.data == 'codeblock' and not self.codeblock.data:
+            self.codeblock.errors.append('Codeblock is required for this post type.')
+            return False
+
+        return True
 
 
 # Registration route
@@ -208,16 +246,150 @@ def new_post():
         return redirect(url_for('home'))
     return render_template('create_post.html', title='New Post', form=form)
 
+# Edit Post Route
+@app.route("/post/edit/<int:post_id>", methods=['GET', 'POST'])
+@login_required
+def edit_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)  # Forbidden access if not the author
+
+    form = PostForm()
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.content = form.content.data
+        post.post_type = form.post_type.data
+        post.codeblock = form.codeblock.data
+        post.quote = form.quote.data
+        post.link = form.link.data
+        post.is_private = form.is_private.data
+
+        # Image handling
+        if form.image_files.data:
+            for image_file in request.files.getlist('image_files'):
+                random_hex = secrets.token_hex(8)
+                _, f_ext = os.path.splitext(secure_filename(image_file.filename))
+                unique_filename = random_hex + '_' + datetime.now().strftime("%Y%m%d%H%M%S") + f_ext
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                image_file.save(image_path)
+                image_url = os.path.join('images', unique_filename).replace('\\', '/')
+                image = Image(url=image_url, post_id=post.id)
+                db.session.add(image)
+
+        # Tag handling
+        if form.tags.data:
+            # Clear existing tags and add new ones
+            post.tags = []
+            tag_names = [t.strip() for t in form.tags.data.split(',')]
+            for tag_name in tag_names:
+                tag = Tag.query.filter_by(name=tag_name).first()
+                if not tag:
+                    tag = Tag(name=tag_name)
+                    db.session.add(tag)
+                post.tags.append(tag)
+
+        db.session.commit()
+        flash('Your post has been updated!', 'success')
+        return redirect(url_for('post', post_id=post.id))
+
+    elif request.method == 'GET':
+        form.title.data = post.title
+        form.content.data = post.content
+        form.post_type.data = post.post_type
+        form.codeblock.data = post.codeblock
+        form.quote.data = post.quote
+        form.link.data = post.link
+        form.is_private.data = post.is_private
+        form.tags.data = ', '.join([tag.name for tag in post.tags])
+
+    return render_template('create_post.html', title='Edit Post', form=form, legend='Edit Post')
+
+@app.route("/post/delete/<int:post_id>", methods=['POST'])
+@login_required
+def delete_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)
+
+    # Delete related images first
+    Image.query.filter_by(post_id=post.id).delete()
+
+    db.session.delete(post)
+    db.session.commit()
+    flash('Your post has been deleted!', 'success')
+    return redirect(url_for('home'))
+
+
+
+@app.route('/api/create_post', methods=['POST'])
+@require_api_key
+def create_post_api(user):
+    data = request.json
+
+    # Check for minimum data requirements
+    if not data or 'post_type' not in data:
+        return jsonify({'error': 'Missing post type'}), 400
+
+    # Create a new post instance
+    new_post = Post(user_id=user.id, post_type=data['post_type'])
+
+    # Assign fields based on post type
+    if data['post_type'] == 'standard':
+        if 'content' not in data:
+            return jsonify({'error': 'Missing content for standard post'}), 400
+        new_post.content = data['content']
+
+    elif data['post_type'] == 'quote':
+        if 'quote' not in data:
+            return jsonify({'error': 'Missing quote content'}), 400
+        new_post.quote = data['quote']
+
+    elif data['post_type'] == 'link':
+        if 'link' not in data:
+            return jsonify({'error': 'Missing link URL'}), 400
+        new_post.link = data['link']
+
+    elif data['post_type'] == 'codeblock':
+        if 'codeblock' not in data:
+            return jsonify({'error': 'Missing codeblock content'}), 400
+        new_post.codeblock = data['codeblock']
+
+    # Add other post type handling as needed
+
+    # Save the post to the database
+    db.session.add(new_post)
+    db.session.commit()
+
+    return jsonify({'message': 'Post created successfully', 'post_id': new_post.id}), 201
+
+
+
 @app.route("/post/<int:post_id>")
 def post(post_id):
     post = Post.query.get_or_404(post_id)
     images = Image.query.filter_by(post_id=post.id).all()
     tags = post.tags
+    post.content = Markup(markdown.markdown(post.content)) 
     return render_template('post.html', title=post.title, post=post, images=images, tags=tags)
 
 @app.route('/about')
 def about():
     return render_template('about.html')
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', title='Profile')
+
+@app.route('/generate_api_key', methods=['POST'])
+@login_required
+def generate_api_key():
+    current_user.api_key = secrets.token_urlsafe(16)
+    db.session.commit()
+    flash('Your API key has been updated.')
+    return redirect(url_for('profile'))
+
+
 
 @app.route('/')
 def home():
@@ -230,6 +402,14 @@ def home():
     else:
         # If not authenticated, show only public posts
         posts = Post.query.filter_by(is_private=False).order_by(Post.date_posted.desc()).all()
+
+    local_timezone = pytz.timezone("Australia/Perth")  # Replace with your timezone, e.g., 'America/New_York'
+
+    for post in posts:
+        post.content = Markup(markdown.markdown(post.content))        
+        # Convert the post date from UTC to your local timezone
+        post.date_posted = post.date_posted.replace(tzinfo=pytz.utc).astimezone(local_timezone)
+
 
     return render_template('home.html', title='Home', posts=posts)
 

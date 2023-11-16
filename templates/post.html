@@ -1,23 +1,58 @@
 {% extends "base.html" %}
+
 {% block content %}
-<nav class="navbar">
-    <a href="{{ url_for('home') }}">Home</a>
-</nav>
-    <article class="post">
-        <h2>{{ post.title }}</h2>
-        <p>{{ post.content }}</p>
-        <!-- Display images if any -->
-        {% for image in images %}
-            <img src="{{ url_for('static', filename=image.url) }}" alt="Post Image">
-        {% endfor %}
-        <!-- Display tags if any -->
-        {% if tags %}
-            <ul class="tags">
-                {% for tag in tags %}
-                    <li>{{ tag.name }}</li>
-                {% endfor %}
-            </ul>
+    <!-- Basic Navbar -->
+    <nav class="navbar">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('profile') }}">Profile</a>
+    </nav>
+
+    <div class='last-thought'>
+        <!-- Display the post title -->
+        {% if post.title %}
+            <h2>{{ post.title }}</h2>
         {% endif %}
-        <!-- Additional post details -->
-    </article>
+
+        <!-- Display the post content -->
+        {% if post.content %}
+            <div class="post-content">{{ post.content|safe }}</div>
+        {% endif %}
+
+        <!-- Additional content based on post type -->
+        {% if post.post_type == 'image' %}
+            <div class="image-gallery">
+                {% for image in post.images %}
+                    <img src="{{ url_for('static', filename=image.url) }}" alt="Post Image">
+                {% endfor %}
+            </div>
+        {% elif post.post_type == 'codeblock' %}
+            <pre><code class="codeblock">{{ post.codeblock }}</code></pre>
+        {% elif post.post_type == 'quote' %}
+            <blockquote>{{ post.quote }}</blockquote>
+        {% elif post.post_type == 'link' %}
+            <p>Check out this link: <a href="{{ post.link }}" target="_blank" class="post-link">{{ post.link }}</a></p>
+        {% endif %}
+
+        {% if post.author == current_user %}
+            <div class="edit-delete-buttons">
+                <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn-edit">Edit</a>
+                <form action="{{ url_for('delete_post', post_id=post.id) }}" method="post" class="delete-form">
+                    <input type="submit" value="Delete" class="btn-delete" onclick="return confirm('Are you sure?');">
+                </form>
+            </div>
+        {% endif %}
+
+        <footer class="post-footer">
+            <span class="post-date">{{ post.date_posted.strftime('%b %d, %Y - %I:%M%p') }}</span>
+            <span class="icon"><i class="fa-solid fa-thumbtack"></i></span>
+            <span class="icon"><i class="fa-solid fa-heart"></i></span>
+            <span class="icon"><i class="fa-solid fa-share-nodes"></i></span>
+            <span class="icon"><i class="fa-solid fa-face-smile"></i></span>
+        </footer>
+    </div>
+
+    <hr>
+    <p style="text-align:center">
+        Made with ♥ by a human.
+    </p>
 {% endblock %}
