@@ -1,19 +1,128 @@
+
 {% extends "base.html" %}
 {% block content %}
-    <h1>New Post</h1>
-    <form action="" method="post">
+
+<nav class="navbar">
+    <a href="{{ url_for('home') }}">Home</a>
+</nav>
+
+    <h1>Create New Post</h1>
+    <form action="{{ url_for('new_post') }}" method="post" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
+
         <div class="form-group">
-            {{ form.title.label }} {{ form.title(class="form-control") }}
+            {{ form.title.label }}
+            {{ form.title(class="form-control") }}
+            {% if form.title.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.title.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
+
         <div class="form-group">
-            {{ form.content.label }} {{ form.content(class="form-control") }}
+            {{ form.content.label }}
+            {{ form.content(class="form-control") }}
+            {% if form.content.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.content.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
+
         <div class="form-group">
-            {{ form.post_type.label }} {{ form.post_type(class="form-control") }}
+            {{ form.post_type.label }}
+            {{ form.post_type(class="form-control", id="post_type") }}
         </div>
+
+        <div class="form-group" id="codeblock-group">
+            {{ form.codeblock.label }}
+            {{ form.codeblock(class="form-control") }}
+            {% if form.codeblock.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.codeblock.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group" id="quote-group">
+            {{ form.quote.label }}
+            {{ form.quote(class="form-control") }}
+            {% if form.quote.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.quote.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group" id="link-group">
+            {{ form.link.label }}
+            {{ form.link(class="form-control") }}
+            {% if form.link.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.link.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group" id="image-group">
+            {{ form.image_files.label }}
+            {{ form.image_files(class="form-control-file") }}
+            {% if form.image_files.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.image_files.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
         <div class="form-group">
-            {{ form.submit(class="btn btn-primary") }}
+            {{ form.tags.label }}
+            {{ form.tags(class="form-control") }}
+            {% if form.tags.errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.tags.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
+
+        <div class="form-group">
+            {{ form.is_private.label }}
+            {{ form.is_private(class="form-check-input") }}
+            <small class="form-text text-muted">
+                Check this box to make the post private.
+            </small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            function updateFormFields() {
+                var postType = document.getElementById("post_type").value;
+                document.getElementById("codeblock-group").style.display = postType === "codeblock" ? "block" : "none";
+                document.getElementById("quote-group").style.display = postType === "quote" ? "block" : "none";
+                document.getElementById("link-group").style.display = postType === "link" ? "block" : "none";
+                document.getElementById("image-group").style.display = postType === "image" ? "block" : "none";
+            }
+
+            document.getElementById("post_type").addEventListener("change", updateFormFields);
+            updateFormFields();  // Call on initial load
+        });
+    </script>
 {% endblock %}
+

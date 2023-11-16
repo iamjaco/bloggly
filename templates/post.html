@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="navbar">
+    <a href="{{ url_for('home') }}">Home</a>
+</nav>
+    <article class="post">
+        <h2>{{ post.title }}</h2>
+        <p>{{ post.content }}</p>
+        <!-- Display images if any -->
+        {% for image in images %}
+            <img src="{{ url_for('static', filename=image.url) }}" alt="Post Image">
+        {% endfor %}
+        <!-- Display tags if any -->
+        {% if tags %}
+            <ul class="tags">
+                {% for tag in tags %}
+                    <li>{{ tag.name }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        <!-- Additional post details -->
+    </article>
+{% endblock %}
